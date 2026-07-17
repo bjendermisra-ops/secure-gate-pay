@@ -1,9 +1,10 @@
 const Razorpay = require('razorpay');
 
 module.exports = async (req, res) => {
-    // CORS Setup
-    res.setHeader('Access-Control-Allow-Credentials', true);
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // Dynamic CORS Headers to bypass Chrome security rules
+    const origin = req.headers.origin ? req.headers.origin : '*';
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -28,11 +29,11 @@ module.exports = async (req, res) => {
             key_secret: process.env.RAZORPAY_KEY_SECRET,
         });
 
-        // Backticks strictly applied on line 35 and 46
+        // Strict template literals checked
         const paymentLink = await instance.paymentLink.create({
             amount: amount * 100,
             currency: "INR",
-            description: `Donation for ${seva}`, 
+            description: `Donation for ${seva}`,
             customer: {
                 name: name,
                 email: email || 'donor@iskcon.org',
@@ -50,6 +51,7 @@ module.exports = async (req, res) => {
         return res.status(200).json({ payment_url: paymentLink.short_url });
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ error: error.message });
+        const errorMessage = error.description || (error.error && error.error.description) || error.message || 'Backend payment generation failed';
+        return res.status(500).json({ error: errorMessage });
     }
 };
