@@ -28,10 +28,11 @@ module.exports = async (req, res) => {
             key_secret: process.env.RAZORPAY_KEY_SECRET,
         });
 
+        // Backticks strictly applied on line 35 and 46
         const paymentLink = await instance.paymentLink.create({
             amount: amount * 100,
             currency: "INR",
-            description: seva,
+            description: `Donation for ${seva}`, 
             customer: {
                 name: name,
                 email: email || 'donor@iskcon.org',
@@ -42,7 +43,6 @@ module.exports = async (req, res) => {
                 email: false,
             },
             reminder_enable: false,
-            // Custom redirect to success page in project 2 after payment is completed
             callback_url: `https://${req.headers.host}/index.html?name=${encodeURIComponent(name)}&amount=${amount}&seva=${encodeURIComponent(seva)}`,
             callback_method: "get"
         });
