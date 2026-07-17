@@ -1,8 +1,8 @@
 const Razorpay = require('razorpay');
 
 module.exports = async (req, res) => {
-    // Dynamic CORS Headers to bypass Chrome security rules
-    const origin = req.headers.origin ? req.headers.origin : '*';
+    // Dynamic CORS Setup with strict hardcoded fallback to prevent WebView Origin omissions
+    const origin = req.headers.origin ? req.headers.origin : 'https://semo-flax.vercel.app';
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
@@ -29,7 +29,7 @@ module.exports = async (req, res) => {
             key_secret: process.env.RAZORPAY_KEY_SECRET,
         });
 
-        // Strict template literals checked
+        // Safe template literals applied
         const paymentLink = await instance.paymentLink.create({
             amount: amount * 100,
             currency: "INR",
