@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const admin = require('firebase-admin');
+const https = require('https');
 
 // Initialize Firebase Admin securely
 if (!admin.apps.length) {
@@ -12,6 +13,49 @@ if (!admin.apps.length) {
     });
 }
 const db = admin.firestore();
+
+// Helper function to send email securely via Resend REST API using Node.js core https module [5]
+function sendResendEmail(apiKey, email, subject, htmlContent) {
+    return new Promise((resolve, reject) => {
+        const payloadData = JSON.stringify({
+            from: 'ISKCON Bhuvaikuntha <seva@iskconhadapsar.online>', // Live verified professional sender domain [5]
+            to: [email],
+            subject: subject,
+            html: htmlContent
+        });
+
+        const options = {
+            hostname: 'api.resend.com',
+            port: 443,
+            path: '/emails',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Length': Buffer.byteLength(payloadData)
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let body = '';
+            res.on('data', (chunk) => { body += chunk; });
+            res.on('end', () => {
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                    resolve(body);
+                } else {
+                    reject(new Error(`Resend API returned status code ${res.statusCode}: ${body}`));
+                }
+            });
+        });
+
+        req.on('error', (err) => {
+            reject(err);
+        });
+
+        req.write(payloadData);
+        req.end();
+    });
+}
 
 module.exports = async (req, res) => {
     // CORS Setup
@@ -61,7 +105,7 @@ module.exports = async (req, res) => {
                 cleanEmail = '';
             }
 
-            // Server-to-server secure write using transaction ID as document ID (Strict Idempotency)
+            // Server-to-server secure write to Firebase Firestore (using paymentId as document ID to prevent duplicate entry)
             await db.collection('donations').doc(paymentId).set({
                 name: name,
                 amount: amount,
@@ -120,19 +164,8 @@ module.exports = async (req, res) => {
                         </div>
                     `;
 
-                    await fetch('https://api.resend.com/emails', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`
-                        },
-                        body: JSON.stringify({
-                            from: 'ISKCON Bhuvaikuntha <seva@iskconhadapsar.online>',
-                            to: [cleanEmail],
-                            subject: `Hare Krishna! Seva Receipt: ${seva} 🙏`,
-                            html: emailHtmlTemplate
-                        })
-                    });
+                    // Trigger direct Node.js secure core HTTPS POST request [5]
+                    await sendResendEmail(process.env.RESEND_API_KEY, cleanEmail, `Hare Krishna! Seva Receipt: ${seva} 🙏`, emailHtmlTemplate);
                     console.log("Real-time Webhook email dispatched successfully to: ", cleanEmail);
                 } catch (emailError) {
                     console.error("Webhook Email dispatcher failure: ", emailError);
