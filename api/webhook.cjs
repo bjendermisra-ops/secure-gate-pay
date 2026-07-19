@@ -1,6 +1,6 @@
-const crypto = require('crypto');
-const admin = require('firebase-admin');
-const https = require('https');
+import crypto from 'crypto';
+import admin from 'firebase-admin';
+import https from 'https';
 
 // Initialize Firebase Admin securely
 if (!admin.apps.length) {
@@ -57,7 +57,7 @@ function sendResendEmail(apiKey, email, subject, htmlContent) {
     });
 }
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
     // CORS Setup
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -77,7 +77,6 @@ module.exports = async (req, res) => {
         const signature = req.headers['x-razorpay-signature'];
         const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-        // Cryptographically verify Razorpay's signature to prevent fake database writes
         const shasum = crypto.createHmac('sha256', webhookSecret);
         shasum.update(JSON.stringify(req.body));
         const digest = shasum.digest('hex');
@@ -186,4 +185,4 @@ module.exports = async (req, res) => {
         console.error(error);
         return res.status(500).json({ error: error.message });
     }
-};
+}
