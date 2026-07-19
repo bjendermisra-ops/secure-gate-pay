@@ -14,7 +14,7 @@ module.exports = async (req, res) => {
         return;
     }
 
-    // Strict Environment Variable Validation with detailed debug feedback
+    // Pre-flight Environment Variable Validation with detailed debug feedback
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
         return res.status(500).json({ 
             error: 'Razorpay API keys (RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET) are missing in secure-gate-pay Vercel project environment variables!' 
@@ -28,7 +28,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const { payment_id, name, amount, seva } = req.method === 'POST' ? req.body : req.query;
+        const { payment_id, name, amount, seva, phone, email } = req.method === 'POST' ? req.body : req.query;
 
         if (!payment_id || !name || !amount) {
             return res.status(400).json({ error: 'Required parameter missing' });
@@ -58,33 +58,44 @@ module.exports = async (req, res) => {
             key_secret: process.env.RAZORPAY_KEY_SECRET,
         });
 
-        // Fetch real payment details directly from Razorpay API [4]
+        // 1. Fetch real payment details directly from Razorpay API [4]
         const payment = await instance.payments.fetch(payment_id);
 
-        // Razorpay returns amount in paise (1 INR = 100 Paise)
+        // 2. Razorpay returns amount in paise (1 INR = 100 Paise)
         const expectedAmountPaise = Number(amount) * 100;
 
-        // Confirm if payment is captured/authorized and amount matches exactly
+        // 3. Confirm if payment is captured/authorized and amount matches exactly
         if ((payment.status === 'captured' || payment.status === 'authorized') && Number(payment.amount) === expectedAmountPaise) {
             
             const decodedName = decodeURIComponent(name);
             const decodedSeva = seva ? decodeURIComponent(seva) : 'General Donation';
-            const donorEmail = payment.email || '';
+            
+            // Prioritize direct form-filled email parameter to bypass void@razorpay.com overrides safely [4]
+            let donorEmail = (email && email !== 'undefined' && email !== 'null') ? decodeURIComponent(email).trim() : '';
+            if (!donorEmail || donorEmail.includes('void@razorpay.com') || donorEmail.includes('razorpay.com')) {
+                donorEmail = payment.email || '';
+            }
 
-            // Server-to-server secure write to Firebase Firestore (using paymentId as document ID to prevent duplicate entry)
+            // Prioritize direct form-filled phone parameter safely [4]
+            let donorPhone = (phone && phone !== 'undefined' && phone !== 'null') ? decodeURIComponent(phone).trim() : '';
+            if (!donorPhone || donorPhone.length < 10) {
+                donorPhone = payment.contact || 'N/A';
+            }
+
+            // 4. Server-to-server secure write to Firebase Firestore using unique paymentId as doc ID (Strict Idempotency)
             await db.collection('donations').doc(payment_id).set({
                 name: decodedName,
                 amount: Number(amount),
                 seva: decodedSeva,
                 paymentId: payment_id,
                 method: payment.method || 'UPI', // Store payment method dynamically [4]
-                contact: payment.contact || 'N/A', // Store customer's real verified phone number [4]
+                contact: donorPhone, // Store customer's real verified phone number [4]
                 email: donorEmail, // Store customer's email address [4]
                 date: admin.firestore.FieldValue.serverTimestamp() // Google Server Time
             });
 
             // --- AUTOMATED REAL-TIME BRANDED EMAIL DISPATCHER (Resend REST API Integration) ---
-            if (donorEmail && process.env.RESEND_API_KEY) {
+            if (donorEmail && process.env.RESEND_API_KEY && !donorEmail.includes('void@razorpay.com')) {
                 try {
                     const emailHtmlTemplate = `
                         <div style="font-family: 'Poppins', Arial, sans-serif; max-width: 500px; margin: 0 auto; border: 1.5px solid #ff9933; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); background-color: #fffcf8;">
@@ -131,7 +142,7 @@ module.exports = async (req, res) => {
                         </div>
                     `;
 
-                    // Dynamic Resend REST API trigger using custom sender domain
+                    // Dynamic Resend REST API trigger using custom sender domain [5]
                     await fetch('https://api.resend.com/emails', {
                         method: 'POST',
                         headers: {
@@ -156,9 +167,9 @@ module.exports = async (req, res) => {
                 status: 'success', 
                 message: 'Real payment verified and saved securely!',
                 payment_details: {
-                    contact: payment.contact || 'N/A',
+                    contact: donorPhone,
                     method: payment.method || 'UPI',
-                    email: payment.email || ''
+                    email: donorEmail
                 }
             });
         } else {
