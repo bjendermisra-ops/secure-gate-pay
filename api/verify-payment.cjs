@@ -1,5 +1,49 @@
 const Razorpay = require('razorpay');
 const admin = require('firebase-admin');
+const https = require('https');
+
+// Helper function to send email securely via Resend REST API using Node.js core https module [5]
+function sendResendEmail(apiKey, email, subject, htmlContent) {
+    return new Promise((resolve, reject) => {
+        const payloadData = JSON.stringify({
+            from: 'ISKCON Bhuvaikuntha <seva@iskconhadapsar.online>', // Live verified professional sender domain [5]
+            to: [email],
+            subject: subject,
+            html: htmlContent
+        });
+
+        const options = {
+            hostname: 'api.resend.com',
+            port: 443,
+            path: '/emails',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Length': Buffer.byteLength(payloadData)
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let body = '';
+            res.on('data', (chunk) => { body += chunk; });
+            res.on('end', () => {
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                    resolve(body);
+                } else {
+                    reject(new Error(`Resend API returned status code ${res.statusCode}: ${body}`));
+                }
+            });
+        });
+
+        req.on('error', (err) => {
+            reject(err);
+        });
+
+        req.write(payloadData);
+        req.end();
+    });
+}
 
 module.exports = async (req, res) => {
     // Dynamic CORS Setup
@@ -14,16 +58,16 @@ module.exports = async (req, res) => {
         return;
     }
 
-    // Pre-flight Environment Variable Validation with detailed debug feedback
+    // Strict Environment Variable Validation
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
         return res.status(500).json({ 
-            error: 'Razorpay API keys (RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET) are missing in secure-gate-pay Vercel project environment variables!' 
+            error: 'Razorpay API keys are missing in secure-gate-pay Vercel project environment variables!' 
         });
     }
 
     if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY) {
         return res.status(500).json({ 
-            error: 'Firebase credentials (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, or FIREBASE_PRIVATE_KEY) are missing in secure-gate-pay Vercel project environment variables!' 
+            error: 'Firebase credentials are missing in secure-gate-pay Vercel project environment variables!' 
         });
     }
 
@@ -34,7 +78,7 @@ module.exports = async (req, res) => {
             return res.status(400).json({ error: 'Required parameter missing' });
         }
 
-        // Robust Firebase Private Key Parsing (Strips accidental wrapping double-quotes and handles newline escapes)
+        // Robust Firebase Private Key Parsing
         let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
         if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
             privateKey = privateKey.slice(1, -1);
@@ -58,13 +102,13 @@ module.exports = async (req, res) => {
             key_secret: process.env.RAZORPAY_KEY_SECRET,
         });
 
-        // 1. Fetch real payment details directly from Razorpay API [4]
+        // Fetch real payment details directly from Razorpay API [4]
         const payment = await instance.payments.fetch(payment_id);
 
-        // 2. Razorpay returns amount in paise (1 INR = 100 Paise)
+        // Razorpay returns amount in paise (1 INR = 100 Paise)
         const expectedAmountPaise = Number(amount) * 100;
 
-        // 3. Confirm if payment is captured/authorized and amount matches exactly
+        // Confirm if payment is captured/authorized and amount matches exactly
         if ((payment.status === 'captured' || payment.status === 'authorized') && Number(payment.amount) === expectedAmountPaise) {
             
             const decodedName = decodeURIComponent(name);
@@ -82,7 +126,7 @@ module.exports = async (req, res) => {
                 donorPhone = payment.contact || 'N/A';
             }
 
-            // 4. Server-to-server secure write to Firebase Firestore using unique paymentId as doc ID (Strict Idempotency)
+            // Server-to-server secure write to Firebase Firestore (using paymentId as document ID to prevent duplicate entry)
             await db.collection('donations').doc(payment_id).set({
                 name: decodedName,
                 amount: Number(amount),
@@ -94,7 +138,7 @@ module.exports = async (req, res) => {
                 date: admin.firestore.FieldValue.serverTimestamp() // Google Server Time
             });
 
-            // --- AUTOMATED REAL-TIME BRANDED EMAIL DISPATCHER (Resend REST API Integration) ---
+            // --- AUTOMATED REAL-TIME BRANDED EMAIL DISPATCHER (Node.js HTTPS REST client) ---
             if (donorEmail && process.env.RESEND_API_KEY && !donorEmail.includes('void@razorpay.com')) {
                 try {
                     const emailHtmlTemplate = `
@@ -142,20 +186,8 @@ module.exports = async (req, res) => {
                         </div>
                     `;
 
-                    // Dynamic Resend REST API trigger using custom sender domain [5]
-                    await fetch('https://api.resend.com/emails', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`
-                        },
-                        body: JSON.stringify({
-                            from: 'ISKCON Bhuvaikuntha <seva@iskconhadapsar.online>', // Live verified professional sender domain [5]
-                            to: [donorEmail],
-                            subject: `Hare Krishna! Seva Receipt: ${decodedSeva} 🙏`,
-                            html: emailHtmlTemplate
-                        })
-                    });
+                    // Trigger direct Node.js secure core HTTPS POST request [5]
+                    await sendResendEmail(process.env.RESEND_API_KEY, donorEmail, `Hare Krishna! Seva Receipt: ${decodedSeva} 🙏`, emailHtmlTemplate);
                     console.log("Real-time transactional email dispatched successfully to: ", donorEmail);
                 } catch (emailError) {
                     console.error("Email dispatcher failure: ", emailError);
