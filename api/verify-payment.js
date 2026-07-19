@@ -1,6 +1,6 @@
-const Razorpay = require('razorpay');
-const admin = require('firebase-admin');
-const https = require('https');
+import Razorpay from 'razorpay';
+import admin from 'firebase-admin';
+import https from 'https';
 
 // Helper function to send email securely via Resend REST API using Node.js core https module [5]
 function sendResendEmail(apiKey, email, subject, htmlContent) {
@@ -45,7 +45,7 @@ function sendResendEmail(apiKey, email, subject, htmlContent) {
     });
 }
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
     // Dynamic CORS Setup
     const origin = req.headers.origin ? req.headers.origin : '*';
     res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -72,7 +72,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const { payment_id, name, amount, seva } = req.method === 'POST' ? req.body : req.query;
+        const { payment_id, name, amount, seva, phone, email } = req.method === 'POST' ? req.body : req.query;
 
         if (!payment_id || !name || !amount) {
             return res.status(400).json({ error: 'Required parameter missing' });
@@ -130,6 +130,11 @@ module.exports = async (req, res) => {
             
             const decodedName = decodeURIComponent(name);
             const decodedSeva = seva ? decodeURIComponent(seva) : 'General Donation';
+            
+            // Prioritize direct form-filled email parameter to bypass void@razorpay.com overrides safely [4]
+            if (!donorEmail || donorEmail.includes('void@razorpay.com') || donorEmail.includes('razorpay.com')) {
+                donorEmail = payment.email || '';
+            }
 
             // Server-to-server secure write to Firebase Firestore (using paymentId as document ID to prevent duplicate entry)
             await db.collection('donations').doc(payment_id).set({
@@ -214,9 +219,7 @@ module.exports = async (req, res) => {
         }
     } catch (error) {
         console.error("Verification server error: ", error);
-        
-        // Deeply extract error description from Razorpay SDK or standard message to show exact cause on success screen
         const errorMessage = error.description || (error.error && error.error.description) || error.message || String(error);
         return res.status(500).json({ error: errorMessage });
     }
-};
+}
