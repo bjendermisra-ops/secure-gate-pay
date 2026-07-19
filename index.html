@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Donation Successful</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            background-color: #f7f9fa;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 65px 15px 25px 15px;
+            box-sizing: border-box;
+        }
+        .container {
+            background: white;
+            padding: 25px 20px;
+            border-radius: 20px;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.06);
+            width: 100%;
+            max-width: 380px;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .instruction-card {
+            background: white;
+            border: 1.5px solid #ffe8cc;
+            border-radius: 16px;
+            padding: 12px 15px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        .curved-arrow {
+            position: absolute;
+            top: -55px;
+            left: -20px;
+            width: 50px;
+            height: 50px;
+            animation: bounceArrow 1.5s infinite;
+        }
+        @keyframes bounceArrow {
+            0%, 100% { transform: translate(0, 0) rotate(-10deg); }
+            50% { transform: translate(-4px, -4px) rotate(-10deg); }
+        }
+
+        .red-cross-circle {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 2px solid #ffe3e3;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(211, 47, 47, 0.1);
+            flex-shrink: 0;
+        }
+        .red-cross-icon {
+            color: #d32f2f;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .instruction-text {
+            text-align: left;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #222;
+        }
+        .highlight-red { color: #d32f2f; font-weight: bold; }
+        .highlight-blue { color: #0d47a1; font-weight: bold; }
+        .highlight-green { color: green; font-weight: bold; }
+        
+        .or-badge {
+            background: green;
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 2px 5px;
+            border-radius: 6px;
+            display: inline-block;
+            margin: 0 2px;
+        }
+
+        .back-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            background: #222;
+            color: #fff;
+            border-radius: 50%;
+            font-size: 10px;
+            font-weight: bold;
+            margin: 0 2px;
+        }
+
+        .success-checkmark {
+            color: green;
+            font-size: 40px;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        .success-title {
+            color: green;
+            font-size: 18px;
+            font-weight: bold;
+            margin: 0 0 5px 0;
+            text-align: center;
+        }
+        .success-subtitle {
+            font-size: 12px;
+            color: #777;
+            margin: 0 0 15px 0;
+            line-height: 1.4;
+            text-align: center;
+        }
+
+        /* receipt box with larger bold texts as requested */
+        .receipt-box { 
+            border: 2px dashed #f28c28; 
+            background: #fffcf8; 
+            padding: 18px; 
+            border-radius: 12px; 
+            margin-bottom: 20px;
+            text-align: left; 
+        }
+        .receipt-row { 
+            display: flex; 
+            justify-content: space-between; 
+            margin: 10px 0; 
+            font-size: 13.5px; 
+            border-bottom: 1px solid #fdf5ea; 
+            padding-bottom: 8px; 
+        }
+        .receipt-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .receipt-row span:first-child { font-weight: bold; color: #555; }
+        .receipt-row span:last-child { color: #111; font-weight: 700; text-align: right; word-break: break-all; }
+
+        .prayer-card {
+            background: #e8f5e9;
+            color: green;
+            font-weight: 500;
+            padding: 12px 15px;
+            border-radius: 10px;
+            font-size: 12px;
+            margin-bottom: 20px;
+            border: 1.5px solid #c8e6c9;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-align: left;
+        }
+        .prayer-card span { font-size: 22px; }
+
+        /* Premium Save receipt button */
+        .download-btn-premium {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #f28c28, #e65100);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(242, 140, 40, 0.2);
+            transition: 0.2s ease;
+        }
+        .download-btn-premium:active {
+            transform: scale(0.96);
+        }
+
+        .footer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            color: green;
+            font-size: 13px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .footer-line {
+            width: 40px;
+            height: 1.5px;
+            background: linear-gradient(to right, transparent, green);
+        }
+        .footer-line.right {
+            background: linear-gradient(to left, transparent, green);
+        }
+
+        /* --- PRECISE PRINT MEDIA STYLES (PDF Generation) --- */
+        @media print {
+            body {
+                background: white !important;
+                color: black !important;
+                padding: 0 !important;
+            }
+            .instruction-card, .download-btn-premium, .success-checkmark, .prayer-card, .footer {
+                display: none !important;
+            }
+            .container {
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+                max-width: 100% !important;
+            }
+            .receipt-box {
+                border: 2px solid #333 !important;
+                background: white !important;
+                padding: 20px !important;
+            }
+            .receipt-row {
+                border-bottom: 1px solid #ddd !important;
+                font-size: 15px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Top Instruction Card with bouncing SVG arrow -->
+        <div class="instruction-card">
+            <svg class="curved-arrow" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <path d="M80,80 Q10,70 15,15" fill="none" stroke="#d32f2f" stroke-width="6" stroke-linecap="round"/>
+                <path d="M15,15 L5,35 M15,15 L35,25" fill="none" stroke="#d32f2f" stroke-width="6" stroke-linecap="round"/>
+            </svg>
+            <div class="red-cross-circle">
+                <span class="red-cross-icon">✕</span>
+            </div>
+            <div class="instruction-text">
+                Please click the <span class="highlight-red">Cross (X) above</span><br>
+                <span class="or-badge">OR</span> press your <span class="highlight-blue">phone's Back button</span><br>
+                <span class="back-icon">&lt;</span> to <span class="highlight-green">return to the App.</span>
+            </div>
+        </div>
+
+        <!-- Success Checkmark and Title -->
+        <div class="success-checkmark">✓</div>
+        <div class="success-title">Donation Successful</div>
+        <div class="success-subtitle">Thank you! Your transaction has been securely captured.</div>
+
+        <!-- Dynamic Receipt Box -->
+        <div class="receipt-box">
+            <div class="receipt-row"><span>Seva:</span> <span id="r-seva"></span></div>
+            <div class="receipt-row"><span>Donor Name:</span> <span id="r-name"></span></div>
+            <div class="receipt-row"><span>Mobile Number:</span> <span id="r-phone">Checking...</span></div>
+            <div class="receipt-row"><span>Amount Paid:</span> <span id="r-amt" style="color: green; font-weight: bold;"></span></div>
+            <div class="receipt-row"><span>Payment Method:</span> <span id="r-method">Checking...</span></div>
+            <div class="receipt-row"><span>Transaction ID:</span> <span id="r-txid" style="font-size: 12px; font-family: monospace;"></span></div>
+            <div class="receipt-row"><span>Date & Time:</span> <span id="r-time"></span></div>
+        </div>
+
+        <!-- Green Prayer Card -->
+        <div class="prayer-card">
+            <span>🙏</span>
+            <div>
+                <strong style="display:block; font-size: 13px; margin-bottom: 2px;">Thank you for your kind support!</strong>
+                Your small contribution makes a big difference.
+            </div>
+        </div>
+
+        <!-- Download PDF Action button -->
+        <button class="download-btn-premium" onclick="window.print()">
+            <i class="fas fa-file-pdf"></i> Save Receipt (PDF)
+        </button>
+
+        <!-- Spiritual Footer -->
+        <div class="footer">
+            <div class="footer-line"></div>
+            🌸 Hare Krishna 🌸
+            <div class="footer-line right"></div>
+        </div>
+    </div>
+
+    <!-- Deferred FontAwesome for instant paint -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+
+    <script>
+        window.onload = function() {
+            // URL params fetch
+            const urlParams = new URLSearchParams(window.location.search);
+            const name = urlParams.get('name') || 'Donor';
+            const amount = urlParams.get('amount') || '0';
+            const seva = urlParams.get('seva') || 'Seva';
+            const paymentId = urlParams.get('razorpay_payment_id') || urlParams.get('razorpay_payment_link_id');
+            
+            const now = new Date();
+            const dateTimeStr = now.toLocaleDateString('en-IN') + ', ' + now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+            // Display on UI
+            document.getElementById('r-name').innerText = decodeURIComponent(name);
+            document.getElementById('r-amt').innerText = '₹' + amount;
+            document.getElementById('r-seva').innerText = decodeURIComponent(seva);
+            document.getElementById('r-time').innerText = dateTimeStr;
+            document.getElementById('r-txid').innerText = paymentId || 'N/A';
+
+            // Trigger secure verification API (calling clean route mapped via vercel.json)
+            if (paymentId && amount !== '0') {
+                const apiPath = `/api/verify-payment?payment_id=${paymentId}&name=${encodeURIComponent(name)}&amount=${amount}&seva=${encodeURIComponent(seva)}`;
+                
+                fetch(apiPath)
+                .then(res => {
+                    if (!res.ok) {
+                        return res.json().then(err => { throw new Error(err.error || 'Server Side Error'); });
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    if (data.status === 'success') {
+                        console.log("Real payment verified and saved in Firestore!");
+                        
+                        // Dynamically render actual payment details returned securely from Razorpay API [4]
+                        if (data.payment_details) {
+                            document.getElementById('r-phone').innerText = data.payment_details.contact || 'N/A';
+                            
+                            // Map payment method to user friendly names [4]
+                            let payMethod = data.payment_details.method || 'UPI';
+                            if (payMethod === 'upi') payMethod = 'UPI Pay';
+                            else if (payMethod === 'card') payMethod = 'Debit/Credit Card';
+                            else if (payMethod === 'netbanking') payMethod = 'Net Banking';
+                            
+                            document.getElementById('r-method').innerText = payMethod.toUpperCase();
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error("Verification failed: ", err);
+                    document.getElementById('r-phone').innerText = 'Associated Phone';
+                    document.getElementById('r-method').innerText = 'UPI / CARD';
+                    
+                    // Creates a visible red debug block on-screen to instantly pinpoint the configuration mistake
+                    const debugDiv = document.createElement('div');
+                    debugDiv.style.color = 'red';
+                    debugDiv.style.fontSize = '12px';
+                    debugDiv.style.marginTop = '15px';
+                    debugDiv.style.fontWeight = 'bold';
+                    debugDiv.style.textAlign = 'center';
+                    debugDiv.innerText = "⚠️ Debug Error: " + err.message;
+                    document.querySelector('.container').appendChild(debugDiv);
+                });
+            } else {
+                document.getElementById('r-phone').innerText = 'N/A';
+                document.getElementById('r-method').innerText = 'UPI';
+            }
+        };
+    </script>
+</body>
+</html>
