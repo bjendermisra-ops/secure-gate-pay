@@ -67,17 +67,89 @@ module.exports = async (req, res) => {
         // Confirm if payment is captured/authorized and amount matches exactly
         if ((payment.status === 'captured' || payment.status === 'authorized') && Number(payment.amount) === expectedAmountPaise) {
             
+            const decodedName = decodeURIComponent(name);
+            const decodedSeva = seva ? decodeURIComponent(seva) : 'General Donation';
+            const donorEmail = payment.email || '';
+
             // Server-to-server secure write to Firebase Firestore (using paymentId as document ID to prevent duplicate entry)
             await db.collection('donations').doc(payment_id).set({
-                name: decodeURIComponent(name),
+                name: decodedName,
                 amount: Number(amount),
-                seva: seva ? decodeURIComponent(seva) : 'General Donation',
+                seva: decodedSeva,
                 paymentId: payment_id,
-                method: payment.method || 'UPI', // Store payment method dynamically (e.g. upi, card, netbanking) [4]
+                method: payment.method || 'UPI', // Store payment method dynamically [4]
                 contact: payment.contact || 'N/A', // Store customer's real verified phone number [4]
-                email: payment.email || '', // Store customer's email address [4]
-                date: admin.firestore.FieldValue.serverTimestamp() // Google Server Time (un-alterable)
+                email: donorEmail, // Store customer's email address [4]
+                date: admin.firestore.FieldValue.serverTimestamp() // Google Server Time
             });
+
+            // --- AUTOMATED REAL-TIME BRANDED EMAIL DISPATCHER (Resend REST API Integration) ---
+            if (donorEmail && process.env.RESEND_API_KEY) {
+                try {
+                    const emailHtmlTemplate = `
+                        <div style="font-family: 'Poppins', Arial, sans-serif; max-width: 500px; margin: 0 auto; border: 1.5px solid #ff9933; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); background-color: #fffcf8;">
+                            <div style="background: linear-gradient(135deg, #1f0802 0%, #3d1b19 100%); padding: 30px 20px; text-align: center; border-bottom: 4px solid #ff9933;">
+                                <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEh89ueri3DvWfVUmM76dyYJSTCLcDC6oYuAT3j-ezAKl5iDeJ97q28vt2MR39RJwL8BGI91we6F4DRj-u7j1EE2NPyQRwFs0HfYcB4HjxZ9VoeUQWGR7GdARSdow00uHqEehsr6gOVDFG15mntfIdNuOrQ_fxAZHCjMWU9kEjzaUMhuN52vsKMA6Tb9Dtx3/s256/1000096788.png" style="width: 75px; height: 75px; border-radius: 50%; border: 2.5px solid #ff9933; background: #fff;" alt="Logo" />
+                                <h1 style="color: #ffcc80; margin: 12px 0 0 0; font-size: 20px; font-weight: 800; letter-spacing: 1px;">ISKCON Bhuvaikuntha</h1>
+                                <p style="color: #ececec; margin: 4px 0 0 0; font-size: 11px;">Sri Sri Radha Pandharinath Mandir - Pandharpur</p>
+                            </div>
+                            <div style="padding: 24px; color: #333; text-align: left; line-height: 1.6;">
+                                <h2 style="color: #ff8f00; font-size: 16px; font-weight: 800; margin-top: 0;">Hare Krishna, ${decodedName}! 🙏</h2>
+                                <p style="font-size: 13px; margin-bottom: 15px;">Please accept our humble obeisances. All glories to Srila Prabhupada.</p>
+                                <p style="font-size: 13px; margin-bottom: 20px;">Thank you for your generous contribution towards the construction and services of ISKCON Bhuvaikuntha Temple. Your donation receipt has been securely recorded on our systems:</p>
+                                
+                                <div style="border: 2px dashed #f28c28; background: #fffdf9; padding: 15px; border-radius: 12px; margin-bottom: 20px;">
+                                    <div style="display: flex; justify-content: space-between; margin: 8px 0; font-size: 12px; border-bottom: 1px solid #fdf5ea; padding-bottom: 6px;">
+                                        <strong style="color: #666;">Seva Selected:</strong>
+                                        <span style="color: #111; font-weight: bold; text-align: right;">${decodedSeva}</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; margin: 8px 0; font-size: 12px; border-bottom: 1px solid #fdf5ea; padding-bottom: 6px;">
+                                        <strong style="color: #666;">Amount Paid:</strong>
+                                        <span style="color: green; font-weight: bold; text-align: right;">₹${amount}/-</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; margin: 8px 0; font-size: 12px; border-bottom: 1px solid #fdf5ea; padding-bottom: 6px;">
+                                        <strong style="color: #666;">Transaction ID:</strong>
+                                        <span style="color: #111; font-weight: bold; font-family: monospace; text-align: right;">${payment_id}</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; margin: 8px 0; font-size: 12px;">
+                                        <strong style="color: #666;">Payment Mode:</strong>
+                                        <span style="color: #111; font-weight: bold; text-align: right;">${(payment.method || 'UPI').toUpperCase()}</span>
+                                    </div>
+                                </div>
+
+                                <div style="background: #e8f5e9; border: 1.5px solid #c8e6c9; border-radius: 10px; padding: 12px; font-size: 11.5px; color: green; margin-bottom: 20px;">
+                                    <strong style="display: block; margin-bottom: 2px;">Bhagavad Gita Wisdom:</strong>
+                                    "Whatever you do, whatever you eat, whatever you offer or give away, and whatever austerities you perform — do that, O son of Kuntī, as an offering to Me." — BG 9.27
+                                </div>
+
+                                <p style="font-size: 12px; color: #777;">Note: For official 10BE (Income Tax Exemption) certificates, our accounts team will contact you securely. For any queries, please email us at bhuvaikuntha@iskcon.org or WhatsApp at +91 9226167380.</p>
+                            </div>
+                            <div style="background: #321614; padding: 15px; text-align: center; color: #ffcc80; font-size: 11px; font-weight: bold;">
+                                🌸 Hare Krishna Hare Krishna Krishna Krishna Hare Hare 🌸<br>
+                                🌸 Hare Rama Hare Rama Rama Rama Hare Hare 🌸
+                            </div>
+                        </div>
+                    `;
+
+                    // Dynamic Resend REST API trigger using custom sender domain
+                    await fetch('https://api.resend.com/emails', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`
+                        },
+                        body: JSON.stringify({
+                            from: 'ISKCON Bhuvaikuntha <seva@iskconhadapsar.online>', // Live verified professional sender domain [5]
+                            to: [donorEmail],
+                            subject: `Hare Krishna! Seva Receipt: ${decodedSeva} 🙏`,
+                            html: emailHtmlTemplate
+                        })
+                    });
+                    console.log("Real-time transactional email dispatched successfully to: ", donorEmail);
+                } catch (emailError) {
+                    console.error("Email dispatcher failure: ", emailError);
+                }
+            }
 
             // Return verified payment details back to frontend for dynamic rendering [4]
             return res.status(200).json({ 
