@@ -96,11 +96,18 @@ module.exports = async (req, res) => {
             const name = paymentLink.customer.name || 'Anonymous Donor';
             const amount = paymentLink.amount / 100; // convert paise to INR
             const seva = paymentLink.description || 'General Donation';
-            const contact = paymentLink.customer.contact || 'N/A';
-            const email = paymentLink.customer.email || '';
             const method = paymentEntity ? (paymentEntity.method || 'UPI') : 'UPI';
 
-            let cleanEmail = email.trim();
+            // Extract real user-filled value from secure server notes to prevent void@razorpay.com [4]
+            let donorEmail = '';
+            let donorPhone = paymentLink.customer.contact || 'N/A';
+
+            if (paymentLink.notes) {
+                if (paymentLink.notes.real_email) donorEmail = paymentLink.notes.real_email;
+                if (paymentLink.notes.real_phone) donorPhone = paymentLink.notes.real_phone;
+            }
+
+            let cleanEmail = donorEmail.trim();
             if (cleanEmail.includes('void@razorpay.com') || cleanEmail.includes('razorpay.com')) {
                 cleanEmail = '';
             }
@@ -112,7 +119,7 @@ module.exports = async (req, res) => {
                 seva: seva,
                 paymentId: paymentId,
                 method: method,
-                contact: contact,
+                contact: donorPhone,
                 email: cleanEmail,
                 date: admin.firestore.FieldValue.serverTimestamp() // Google Server Time
             });
@@ -164,7 +171,6 @@ module.exports = async (req, res) => {
                         </div>
                     `;
 
-                    // Trigger direct Node.js secure core HTTPS POST request [5]
                     await sendResendEmail(process.env.RESEND_API_KEY, cleanEmail, `Hare Krishna! Seva Receipt: ${seva} 🙏`, emailHtmlTemplate);
                     console.log("Real-time Webhook email dispatched successfully to: ", cleanEmail);
                 } catch (emailError) {
