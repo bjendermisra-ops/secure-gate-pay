@@ -61,24 +61,24 @@ module.exports = async (req, res) => {
     // Strict Environment Variable Validation
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
         return res.status(500).json({ 
-            error: 'Razorpay API keys are missing in secure-gate-pay Vercel project environment variables!' 
+            error: 'Razorpay API keys (RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET) are missing in secure-gate-pay Vercel project environment variables!' 
         });
     }
 
     if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY) {
         return res.status(500).json({ 
-            error: 'Firebase credentials are missing in secure-gate-pay Vercel project environment variables!' 
+            error: 'Firebase credentials (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, or FIREBASE_PRIVATE_KEY) are missing in secure-gate-pay Vercel project environment variables!' 
         });
     }
 
     try {
-        const { payment_id, name, amount, seva, phone, email } = req.method === 'POST' ? req.body : req.query;
+        const { payment_id, name, amount, seva } = req.method === 'POST' ? req.body : req.query;
 
         if (!payment_id || !name || !amount) {
             return res.status(400).json({ error: 'Required parameter missing' });
         }
 
-        // Robust Firebase Private Key Parsing
+        // Robust Firebase Private Key Parsing (Strips accidental wrapping double-quotes and handles newline escapes)
         let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
         if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
             privateKey = privateKey.slice(1, -1);
@@ -105,6 +105,23 @@ module.exports = async (req, res) => {
         // Fetch real payment details directly from Razorpay API [4]
         const payment = await instance.payments.fetch(payment_id);
 
+        // Fetch the parent Payment Link object to extract secure metadata notes [4]
+        let donorEmail = payment.email || '';
+        let donorPhone = payment.contact || 'N/A';
+
+        if (payment.payment_link_id) {
+            try {
+                const paymentLink = await instance.paymentLink.fetch(payment.payment_link_id);
+                // Extract real user-filled values from secure server notes [4]
+                if (paymentLink && paymentLink.notes) {
+                    if (paymentLink.notes.real_email) donorEmail = paymentLink.notes.real_email;
+                    if (paymentLink.notes.real_phone) donorPhone = paymentLink.notes.real_phone;
+                }
+            } catch (linkError) {
+                console.warn("Failed to fetch Payment Link metadata notes, using payment entity fallback:", linkError);
+            }
+        }
+
         // Razorpay returns amount in paise (1 INR = 100 Paise)
         const expectedAmountPaise = Number(amount) * 100;
 
@@ -113,18 +130,6 @@ module.exports = async (req, res) => {
             
             const decodedName = decodeURIComponent(name);
             const decodedSeva = seva ? decodeURIComponent(seva) : 'General Donation';
-            
-            // Prioritize direct form-filled email parameter to bypass void@razorpay.com overrides safely [4]
-            let donorEmail = (email && email !== 'undefined' && email !== 'null') ? decodeURIComponent(email).trim() : '';
-            if (!donorEmail || donorEmail.includes('void@razorpay.com') || donorEmail.includes('razorpay.com')) {
-                donorEmail = payment.email || '';
-            }
-
-            // Prioritize direct form-filled phone parameter safely [4]
-            let donorPhone = (phone && phone !== 'undefined' && phone !== 'null') ? decodeURIComponent(phone).trim() : '';
-            if (!donorPhone || donorPhone.length < 10) {
-                donorPhone = payment.contact || 'N/A';
-            }
 
             // Server-to-server secure write to Firebase Firestore (using paymentId as document ID to prevent duplicate entry)
             await db.collection('donations').doc(payment_id).set({
